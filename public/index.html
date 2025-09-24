@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PM2 Web Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .modal {
+            display: none;
+        }
+
+        .modal.flex {
+            display: flex;
+        }
+
+        .process-card {
+            transition: all 0.2s ease-in-out;
+        }
+
+        .process-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .log-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .log-content::-webkit-scrollbar-track {
+            background: #2d3748;
+        }
+
+        .log-content::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 4px;
+        }
+
+        .log-content::-webkit-scrollbar-thumb:hover {
+            background: #718096;
+        }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Login Screen -->
+    <div id="login-screen" class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
+        <div class="w-full max-w-md bg-gray-800 p-8 rounded-lg shadow-2xl border border-gray-700">
+            <h2 class="text-3xl font-bold text-center text-white mb-2">PM2 Manager</h2>
+            <p class="text-center text-gray-400 mb-8">Iniciar sesión</p>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-400 mb-1">Usuario</label>
+                    <input type="text" id="username"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-400 mb-1">Contraseña</label>
+                    <input type="password" id="password"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        required>
+                </div>
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg transition duration-200">Entrar</button>
+            </form>
+            <p id="login-error" class="text-red-400 text-center mt-4 text-sm"></p>
+        </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="container mx-auto p-4 md:p-8 max-w-7xl hidden">
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-white">PM2 Web Manager</h1>
+            <button id="logout-btn"
+                class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg text-sm">Cerrar
+                Sesión</button>
+        </header>
+
+        <!-- Controls -->
+        <div class="bg-gray-800 p-6 rounded-lg mb-8 shadow-lg border border-gray-700">
+            <h2 class="text-xl font-semibold mb-4 text-white">Controles</h2>
+            <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                <div class="md:col-span-4">
+                    <label for="script-path" class="block text-sm font-medium text-gray-400 mb-1">Script a
+                        ejecutar</label>
+                    <div class="flex">
+                        <input type="text" id="script-path"
+                            class="w-full bg-gray-700 border border-gray-600 rounded-l-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            placeholder="Selecciona un script...">
+                        <button id="browse-scripts-btn"
+                            class="bg-gray-600 hover:bg-gray-500 text-white font-semibold px-4 rounded-r-lg">...</button>
+                    </div>
+                </div>
+                <div class="md:col-span-3">
+                    <label for="process-name" class="block text-sm font-medium text-gray-400 mb-1">Nombre del
+                        Proceso</label>
+                    <input type="text" id="process-name"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        placeholder="mi-app-genial">
+                </div>
+                <div class="md:col-span-1">
+                    <label for="process-instances"
+                        class="block text-sm font-medium text-gray-400 mb-1">Instancias</label>
+                    <input type="number" id="process-instances" value="1" min="1"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+                <div class="md:col-span-2">
+                    <label for="exec-mode" class="block text-sm font-medium text-gray-400 mb-1">Modo Exec</label>
+                    <select id="exec-mode"
+                        class="w-full bg-gray-700 border border-gray-600 rounded-md px-3 py-2 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                        <option>fork</option>
+                        <option>cluster</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <button id="start-process"
+                        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition duration-200">Iniciar
+                        Proceso</button>
+                </div>
+            </div>
+            <div class="flex space-x-4 mt-4">
+                <button id="stop-all"
+                    class="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">Detener
+                    Todos</button>
+                <button id="restart-all"
+                    class="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-2 px-4 rounded-lg transition duration-200">Reiniciar
+                    Todos</button>
+            </div>
+        </div>
+
+        <!-- Process List -->
+        <div>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-white">Lista de Procesos</h2>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <input type="checkbox" id="auto-refresh"
+                            class="h-4 w-4 rounded bg-gray-700 border-gray-600 text-blue-600 focus:ring-blue-500">
+                        <label for="auto-refresh" class="ml-2 text-sm text-gray-400">Auto-refresco (10s)</label>
+                    </div>
+                    <input type="text" id="filter-input" placeholder="Filtrar por nombre..."
+                        class="bg-gray-700 border border-gray-600 rounded-md px-3 py-1.5 text-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                </div>
+            </div>
+            <div id="process-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+    </div>
+
+    <!-- Modals (File Browser, Logs, Alert) -->
+    <div id="file-browser-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center z-40 modal">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-2xl border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-semibold text-white">Seleccionar Script</h3> <button id="file-browser-close"
+                    class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="flex items-center bg-gray-700 p-2 rounded-t-lg"> <button id="file-browser-back"
+                    class="text-gray-300 hover:text-white mr-2">&#8592;</button> <span id="current-path"
+                    class="text-gray-300">/</span> </div>
+            <div id="file-browser-content" class="bg-gray-900 p-4 rounded-b-lg h-96 overflow-y-auto"></div>
+        </div>
+    </div>
+    <div id="logs-modal" class="fixed inset-0 bg-black bg-opacity-70 items-center justify-center z-50 modal">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl h-5/6 flex flex-col border border-gray-700">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h3 class="text-xl font-semibold text-white" id="logs-modal-title">Logs</h3> <button
+                    id="logs-modal-close" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="p-4 border-b border-gray-600">
+                <div class="flex space-x-1" id="logs-tabs"> <button
+                        class="log-tab-btn bg-gray-700 text-white px-4 py-2 rounded-t-lg" data-type="out">Salida
+                        (out)</button> <button class="log-tab-btn bg-transparent text-gray-400 px-4 py-2 rounded-t-lg"
+                        data-type="err">Error (err)</button> </div>
+            </div>
+            <pre id="logs-content"
+                class="log-content flex-grow p-4 text-sm whitespace-pre-wrap overflow-y-auto font-mono bg-gray-900"></pre>
+        </div>
+    </div>
+    <div id="alert-modal" class="fixed inset-0 bg-black bg-opacity-60 items-center justify-center z-50 modal">
+        <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md border border-gray-700">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="alert-modal-title" class="text-xl font-semibold text-white">Notificación</h3> <button
+                    id="alert-modal-close" class="text-gray-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div>
+                <p id="alert-modal-body" class="text-gray-300"></p>
+            </div>
+            <div class="mt-6 flex justify-end"> <button id="alert-modal-ok"
+                    class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Aceptar</button> </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const loginScreen = document.getElementById('login-screen');
+        const mainApp = document.getElementById('main-app');
+        const loginForm = document.getElementById('login-form');
+        const loginError = document.getElementById('login-error');
+        const processList = document.getElementById('process-list');
+        const fileBrowserModal = document.getElementById('file-browser-modal');
+        const fileBrowserContent = document.getElementById('file-browser-content');
+        const currentPathEl = document.getElementById('current-path');
+        const logsModal = document.getElementById('logs-modal');
+        const logsContent = document.getElementById('logs-content');
+        const logsModalTitle = document.getElementById('logs-modal-title');
+        const alertModal = document.getElementById('alert-modal');
+        const alertModalTitle = document.getElementById('alert-modal-title');
+        const alertModalBody = document.getElementById('alert-modal-body');
+        let autoRefreshInterval = null;
+
+        // --- API Helper ---
+        async function apiCall(endpoint, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                if (body) options.body = JSON.stringify(body);
+
+                const response = await fetch(`/api${endpoint}`, options);
+
+                if (response.status === 401) {
+                    showLoginScreen();
+                    throw new Error('No autorizado');
+                }
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Respuesta no válida' }));
+                    throw new Error(errorData.error || `Error ${response.status}`);
+                }
+                if (response.headers.get("content-type")?.includes("application/json")) {
+                    return await response.json();
+                }
+                return await response.text();
+            } catch (error) {
+                console.error(`API Call Error: ${error.message}`);
+                if (error.message !== 'No autorizado') {
+                    showAlert(`Error en la API: ${error.message}`, true);
+                }
+                throw error;
+            }
+        }
+
+        // --- Auth Logic ---
+        function showLoginScreen() {
+            mainApp.classList.add('hidden');
+            loginScreen.classList.remove('hidden');
+            loginScreen.classList.add('flex');
+        }
+
+        function showMainApp() {
+            loginScreen.classList.add('hidden');
+            loginScreen.classList.remove('flex');
+            mainApp.classList.remove('hidden');
+            fetchProcesses();
+        }
+
+        async function handleLogin(event) {
+            event.preventDefault();
+            loginError.textContent = '';
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                const data = await response.json();
+                if (data.ok) {
+                    showMainApp();
+                } else {
+                    loginError.textContent = data.error || 'Error desconocido';
+                }
+            } catch (error) {
+                loginError.textContent = 'No se pudo conectar con el servidor.';
+            }
+        }
+
+        async function handleLogout() {
+            try {
+                await fetch('/logout', { method: 'POST' });
+                window.location.reload();
+            } catch (error) {
+                showAlert('No se pudo cerrar la sesión.', true);
+            }
+        }
+
+        async function checkLoginStatus() {
+            try {
+                await apiCall('/processes');
+                showMainApp();
+            } catch (e) {
+                showLoginScreen();
+            }
+        }
+
+
+        // --- Modal Logic ---
+        function showAlert(message, isError = false) {
+            alertModalBody.textContent = message;
+            alertModalTitle.textContent = isError ? 'Error' : 'Notificación';
+            alertModal.classList.remove('hidden');
+            alertModal.classList.add('flex');
+            alertModalTitle.classList.toggle('text-red-400', isError);
+        }
+        function hideAlert() {
+            alertModal.classList.add('hidden');
+            alertModal.classList.remove('flex');
+        }
+
+        // --- Core Functions ---
+        async function fetchProcesses() {
+            try {
+                const processes = await apiCall('/processes');
+                processList.innerHTML = '';
+                const filterText = document.getElementById('filter-input').value.toLowerCase();
+
+                processes
+                    .filter(p => p.name.toLowerCase().includes(filterText))
+                    .forEach(p => {
+                        const statusColor = p.status === 'online' ? 'bg-green-500' : (p.status === 'errored' ? 'bg-red-500' : 'bg-yellow-500');
+                        const card = `
+                            <div class="process-card bg-gray-800 p-5 rounded-lg shadow-md border border-gray-700">
+                                <div class="flex justify-between items-start">
+                                    <h3 class="text-lg font-bold text-white">${p.name} [${p.id}]</h3>
+                                    <div class="flex items-center space-x-2 text-sm">
+                                        <div class="w-3 h-3 rounded-full ${statusColor}"></div>
+                                        <span class="capitalize">${p.status}</span>
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-400 break-all mt-1">${p.script}</p>
+                                <div class="grid grid-cols-2 gap-2 text-sm text-gray-300 mt-4">
+                                    <p><span class="font-semibold">PID:</span> ${p.pid || 'N/A'}</p>
+                                    <p><span class="font-semibold">CPU:</span> ${p.cpu}%</p>
+                                    <p><span class="font-semibold">Memoria:</span> ${formatBytes(p.memory)}</p>
+                                    <p><span class="font-semibold">Uptime:</span> ${formatUptime(p.uptime)}</p>
+                                </div>
+                                <div class="flex space-x-2 mt-4">
+                                    <button class="action-btn bg-blue-600 hover:bg-blue-700" onclick="restartProcess(${p.id})">Restart</button>
+                                    <button class="action-btn bg-red-600 hover:bg-red-700" onclick="stopProcess(${p.id})">Stop</button>
+                                    <button class="action-btn bg-gray-600 hover:bg-gray-700" onclick="showLogs(${p.id}, '${p.name}')">Logs</button>
+                                    <button class="action-btn bg-gray-700 hover:bg-gray-600" onclick="deleteProcess(${p.id})">Delete</button>
+                                </div>
+                            </div>
+                        `;
+                        processList.innerHTML += card.replace(/class="action-btn/g, 'class="flex-1 text-white text-sm font-semibold py-1.5 px-3 rounded-md transition duration-200');
+                    });
+            } catch (error) { }
+        }
+
+        // --- Process Actions ---
+        async function startProcess() {
+            const script = document.getElementById('script-path').value;
+            const name = document.getElementById('process-name').value;
+            const instances = document.getElementById('process-instances').value;
+            const exec_mode = document.getElementById('exec-mode').value;
+            if (!script || !name) return showAlert('El script y el nombre son requeridos.', true);
+            try {
+                await apiCall('/start', 'POST', { script, name, instances, exec_mode });
+                showAlert('Proceso iniciado.');
+                fetchProcesses();
+            } catch (error) { }
+        }
+        async function restartProcess(id) { try { await apiCall(`/restart/${id}`, 'POST'); showAlert(`Proceso ${id} reiniciado.`); fetchProcesses(); } catch (e) { } }
+        async function stopProcess(id) { try { await apiCall(`/stop/${id}`, 'POST'); showAlert(`Proceso ${id} detenido.`); fetchProcesses(); } catch (e) { } }
+        async function deleteProcess(id) { try { await apiCall(`/delete/${id}`, 'DELETE'); showAlert(`Proceso ${id} eliminado.`); fetchProcesses(); } catch (e) { } }
+        async function stopAll() { try { await apiCall('/stopAll', 'POST'); showAlert(`Todos detenidos.`); fetchProcesses(); } catch (e) { } }
+        async function restartAll() { try { await apiCall('/restartAll', 'POST'); showAlert(`Todos reiniciados.`); fetchProcesses(); } catch (e) { } }
+
+        // --- UI Modals (Logs, File Browser) ---
+        async function showLogs(id, name, type = 'out') {
+            logsModalTitle.textContent = `Logs: ${name} [${id}]`;
+            logsContent.textContent = 'Cargando logs...';
+            document.querySelectorAll('.log-tab-btn').forEach(btn => {
+                btn.classList.toggle('bg-gray-700', btn.dataset.type === type);
+                btn.classList.toggle('text-white', btn.dataset.type === type);
+                btn.classList.toggle('bg-transparent', btn.dataset.type !== type);
+                btn.classList.toggle('text-gray-400', btn.dataset.type !== type);
+            });
+            logsModal.classList.add('flex');
+            try {
+                logsContent.textContent = await apiCall(`/logs/${id}?type=${type}`) || 'Log vacío.';
+            } catch (error) {
+                logsContent.textContent = `Error al cargar logs: ${error.message}`;
+            }
+        }
+        function hideLogs() { logsModal.classList.remove('flex'); }
+        function showFileBrowser() { fileBrowserModal.classList.add('flex'); loadDirectory(''); }
+        function hideFileBrowser() { fileBrowserModal.classList.remove('flex'); }
+
+        async function loadDirectory(dir) {
+            fileBrowserContent.innerHTML = 'Cargando...';
+            try {
+                const data = await apiCall(`/browse?dir=${encodeURIComponent(dir)}`);
+                currentPathEl.textContent = `/${data.path}`;
+                let contentHTML = '';
+                data.dirs.forEach(d => { contentHTML += `<div class="p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center" onclick="loadDirectory('${(dir ? dir + '/' : '') + d}')"><svg class="w-6 h-6 mr-2 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg><span>${d}</span></div>`; });
+                data.files.forEach(f => { contentHTML += `<div class="p-2 hover:bg-gray-700 rounded cursor-pointer flex items-center" onclick="selectFile('${(dir ? dir + '/' : '') + f}')"><svg class="w-6 h-6 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg><span>${f}</span></div>`; });
+                fileBrowserContent.innerHTML = contentHTML;
+            } catch (error) { fileBrowserContent.innerHTML = `<p class="text-red-400">Error al cargar.</p>`; }
+        }
+
+        function selectFile(filePath) {
+            document.getElementById('script-path').value = filePath;
+            document.getElementById('process-name').value = filePath.split('/').pop().replace('.js', '');
+            hideFileBrowser();
+        }
+
+        // --- Helper Functions ---
+        function formatBytes(bytes, d = 2) { if (bytes === 0) return '0 B'; const k = 1024, s = ['B', 'KB', 'MB', 'GB', 'TB']; const i = Math.floor(Math.log(bytes) / Math.log(k)); return `${parseFloat((bytes / Math.pow(k, i)).toFixed(d))} ${s[i]}`; }
+        function formatUptime(uptime) { if (!uptime) return 'N/A'; const s = Math.floor((Date.now() - uptime) / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60); let r = ''; if (d > 0) r += `${d}d `; if (h > 0) r += `${h}h `; if (m > 0) r += `${m}m`; return r.trim() || '0m'; }
+
+        // --- Initialization ---
+        function init() {
+            loginForm.addEventListener('submit', handleLogin);
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+            document.getElementById('start-process').addEventListener('click', startProcess);
+            document.getElementById('stop-all').addEventListener('click', stopAll);
+            document.getElementById('restart-all').addEventListener('click', restartAll);
+            document.getElementById('filter-input').addEventListener('input', fetchProcesses);
+            document.getElementById('auto-refresh').addEventListener('change', (e) => {
+                clearInterval(autoRefreshInterval);
+                if (e.target.checked) autoRefreshInterval = setInterval(fetchProcesses, 10000);
+            });
+            document.getElementById('browse-scripts-btn').addEventListener('click', showFileBrowser);
+            document.getElementById('file-browser-close').addEventListener('click', hideFileBrowser);
+            document.getElementById('file-browser-back').addEventListener('click', () => {
+                const c = currentPathEl.textContent.substring(1); loadDirectory(c.substring(0, c.lastIndexOf('/')));
+            });
+            document.getElementById('logs-modal-close').addEventListener('click', hideLogs);
+            document.querySelectorAll('.log-tab-btn').forEach(btn => btn.addEventListener('click', (e) => {
+                const id = logsModalTitle.textContent.match(/\[(\d+)\]/)[1], n = logsModalTitle.textContent.replace(/Logs: | \[\d+\]/g, ''); showLogs(id, n, e.target.dataset.type);
+            }));
+            document.getElementById('alert-modal-close').addEventListener('click', hideAlert);
+            document.getElementById('alert-modal-ok').addEventListener('click', hideAlert);
+
+            checkLoginStatus();
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

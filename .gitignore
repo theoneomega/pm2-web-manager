@@ -1,0 +1,14 @@
+# Dependencias
+/node_modules
+
+# Archivos de entorno - ¡NUNCA SUBIR A GITHUB!
+.env
+
+# Logs de PM2 y del sistema
+*.log
+/logs/
+/pm2.log
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
