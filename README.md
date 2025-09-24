@@ -21,7 +21,7 @@ Prerequisites: **Node.js** (v16 or higher) and **PM2** installed globally.
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/pm2-web-manager.git](https://github.com/your-username/pm2-web-manager.git)
+    git clone [https://github.com/theoneomega/pm2-web-manager.git](https://github.com/theoneomega/pm2-web-manager.git)
     cd pm2-web-manager
     ```
 
